@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Discover Events | Eventify</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom CSS -->
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+
+<body style="background: #0f0f1e; color: #ffffff;">
+
+    <nav class="navbar" style="background: #1a1a2e; border-bottom: 1px solid #2d2d44; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); padding: 1rem 2rem;">
+        <a href="{% url 'home' %}" class="nav-brand" style="color: #4f46e5; font-size: 1.5rem; font-weight: 700;"><i class="fa-solid fa-map-location-dot"></i> Eventify</a>
+        <div class="nav-links" style="display: flex; gap: 2rem; align-items: center;">
+            <a href="{% url 'home' %}" style="color: #b0b0b0; text-decoration: none; transition: color 0.3s;">Explore</a>
+            {% if user.is_authenticated %}
+            <a href="{% url 'dashboard' %}" style="color: #b0b0b0; text-decoration: none; transition: color 0.3s;">My Tickets</a>
+            <a href="{% url 'submit_feedback' %}" style="color: #b0b0b0; text-decoration: none; transition: color 0.3s;">Give Feedback</a>
+            {% if user.is_superuser or user.is_organizer or user.organized_events.exists %}
+            <a href="{% url 'admin_dashboard' %}" style="color: #b0b0b0; text-decoration: none; transition: color 0.3s;">Host Dashboard</a>
+            {% endif %}
+            <form action="{% url 'logout' %}" method="post" style="display:inline;">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-secondary" style="margin-left:0; background: #4f46e5; color: #ffffff; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer;">Logout</button>
+            </form>
+            {% else %}
+            <a href="{% url 'login' %}" style="color: #b0b0b0; text-decoration: none; transition: color 0.3s;">Login</a>
+            <a href="{% url 'register' %}" class="btn btn-primary" style="margin-left: 0; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); box-shadow: 0 4px 15px rgba(79, 70, 229, 0.4); color: white; padding: 0.5rem 1rem; border-radius: 6px; text-decoration: none;"><i class="fas fa-user-plus"></i> Sign Up</a>
+            {% endif %}
+        </div>
+    </nav>
+
+    {% if messages %}
+    <div class="messages">
+        {% for message in messages %}
+        <div class="message {{ message.tags }}" style="background: #1a1a2e; color: #ffffff; border: 1px solid #4f46e5; padding: 1rem; margin: 1rem auto; border-radius: 8px; max-width: 90%; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);">
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <main class="container" style="background: #0f0f1e; padding: 2rem 1rem;">
+        <div class="hero" style="background: #1a1a2e; border-radius: 12px; padding: 3rem; border: 1px solid #2d2d44; box-shadow: var(--shadow-md);">
+            <h1 style="color: #ffffff; margin-bottom: 0.5rem;">Find Your Next Experience</h1>
+            <p style="color: #b0b0b0; margin-bottom: 2rem;">Discover tech meetups, workshops, and concerts near you.</p>
+            <form class="search-bar" method="GET" action="{% url 'home' %}">
+                <input type="text" name="q" placeholder="Search events or locations..." class="form-control"
+                    value="{{ request.GET.q|default:'' }}" style="background: #2a2a3e; border: 2px solid #4f46e5; color: #ffffff;">
+                <select name="category" class="form-control" style="background: #2a2a3e; border: 2px solid #4f46e5; color: #ffffff;">
+                    <option value="" style="background: #2a2a3e; color: #ffffff;">All Categories</option>
+                    {% for cat in categories %}
+                    <option value="{{ cat.id }}" {% if request.GET.category == cat.id|stringformat:"s" %}selected{% endif %} style="background: #2a2a3e; color: #ffffff;">
+                        {{ cat.category_name }}
+                    </option>
+                    {% endfor %}
+                </select>
+                <button type="submit" class="btn btn-primary" style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); border: none; box-shadow: 0 4px 15px rgba(79, 70, 229, 0.4);"><i class="fa fa-search"></i> Search</button>
+            </form>
+        </div>
+
+        <div class="event-grid">
+            {% for event in events %}
+            <div class="event-card" style="background: #1a1a2e; border: 1px solid #2d2d44; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);">
+                {% if event.image %}
+                <img src="{{ event.image.url }}" alt="{{ event.title }}" class="event-img">
+                {% else %}
+                <div class="event-img" style="display:flex; justify-content:center; align-items:center;">
+                    <i class="fa fa-image fa-3x" style="color:var(--text-light)"></i>
+                </div>
+                {% endif %}
+                <div class="event-body" style="padding: 1rem; color: #ffffff;">
+                    <span class="event-category" style="background: #4f46e5; color: #ffffff; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.75rem; font-weight: 600; display: inline-block; margin-bottom: 0.5rem;">{{ event.category.category_name }}</span>
+                    <h3 class="event-title" style="color: #ffffff; margin: 0.5rem 0; font-size: 1.25rem;">{{ event.title }}</h3>
+                    <div class="event-info" style="color: #b0b0b0; font-size: 0.875rem;">
+                        <div><i class="fa fa-calendar-alt"></i> {{ event.date|date:"F d, Y, h:i a" }}</div>
+                        <div><i class="fa fa-map-marker-alt"></i> {{ event.location }}</div>
+                    </div>
+                    <a href="{% url 'event_details' event.id %}" class="btn btn-primary" style="width: 100%; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); box-shadow: 0 4px 15px rgba(79, 70, 229, 0.4); margin-top: 1rem;">View
+                        Details</a>
+                </div>
+            </div>
+            {% empty %}
+            <p style="grid-column: 1/-1; text-align: center; color: #b0b0b0; padding: 3rem;">No events found
+                matching your criteria.</p>
+            {% endfor %}
+        </div>
+    </main>
+
+    <footer style="background: #1a1a2e; border-top: 1px solid #2d2d44; color: #b0b0b0; padding: 2rem; text-align: center; margin-top: 4rem;">
+        <p>&copy; 2026 Eventify. Explore your city!</p>
+    </footer>
+
+    <script>
+        setTimeout(() => {
+            const msgs = document.querySelectorAll('.message');
+            msgs.forEach(msg => {
+                msg.style.opacity = '0';
+                setTimeout(() => msg.remove(), 300);
+            });
+        }, 5000);
+    </script>
+</body>
+
+</html>

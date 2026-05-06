@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkout: {{ event.title }} | Eventify</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Razorpay SDK -->
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+    <!-- Custom CSS -->
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+
+<body style="background: #0f0f1e; color: #ffffff;">
+
+    <nav class="navbar">
+        <a href="{% url 'home' %}" class="nav-brand"><i class="fa-solid fa-map-location-dot"></i> Eventify</a>
+        <div class="nav-links">
+            <a href="{% url 'home' %}">Explore</a>
+            {% if user.is_authenticated %}
+            <a href="{% url 'dashboard' %}">My Tickets</a>
+            <a href="{% url 'submit_feedback' %}">Give Feedback</a>
+            {% if user.is_superuser or user.is_organizer or user.organized_events.exists %}
+            <a href="{% url 'admin_dashboard' %}">Host Dashboard</a>
+            {% endif %}
+            <form action="{% url 'logout' %}" method="post" style="display:inline;">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-secondary" style="margin-left:1rem;">Logout</button>
+            </form>
+            {% else %}
+            <a href="{% url 'login' %}">Login</a>
+            <a href="{% url 'register' %}" class="btn btn-primary">Sign Up</a>
+            {% endif %}
+        </div>
+    </nav>
+
+    {% if messages %}
+    <div class="messages">
+        {% for message in messages %}
+        <div class="message {{ message.tags }}">
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <main class="container">
+        <div class="glass-panel form-container" style="max-width: 500px; background: #1a1a2e; border: 1px solid #2d2d44;">
+            <h2 class="form-title" style="color: #ffffff;">Secure Checkout</h2>
+            <p class="form-subtitle" style="color: #b0b0b0;">Complete your payment to reserve your ticket</p>
+            
+            <div style="background: rgba(79, 70, 229, 0.05); padding: 1.5rem; border-radius: var(--radius-sm); margin-bottom: 2rem; border: 1px solid var(--glass-border);">
+                <h3 style="margin-bottom: 0.5rem; font-size: 1.1rem;">Order Summary</h3>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                    <span>{{ event.title }} ({{ quantity }} Ticket{{ quantity|pluralize }})</span>
+                    <strong>₹{{ event.price }} × {{ quantity }}</strong>
+                </div>
+                <hr style="border: none; border-top: 1px dashed #D1D5DB; margin: 1rem 0;">
+                <div style="display: flex; justify-content: space-between; font-size: 1.2rem;">
+                    <strong>Total Amount:</strong>
+                    <strong style="color: var(--primary);">₹{{ total_price }}</strong>
+                </div>
+            </div>
+            
+            {% if razorpay_order_id %}
+            <!-- Razorpay Payment Form -->
+            <form id="payment-form" method="POST">
+                {% csrf_token %}
+                <input type="hidden" name="quantity" value="{{ quantity }}">
+                <input type="hidden" name="payment_method" id="payment_method" value="Credit Card">
+                <input type="hidden" id="razorpay_order_id" value="{{ razorpay_order_id }}">
+                <input type="hidden" id="registration_id" value="{{ registration_id }}">
+                
+                <div class="form-group">
+                    <label>Payment Method</label>
+                    <select id="payment_method_select" class="form-control" required>
+                        <option value="">Select a payment method</option>
+                        <option value="Credit Card" selected>Credit Card</option>
+                        <option value="Debit Card">Debit Card</option>
+                        <option value="UPI">UPI</option>
+                        <option value="Net Banking">Net Banking</option>
+                    </select>
+                </div>
+                
+                <button type="button" id="pay-button" class="btn btn-primary" style="width: 100%; margin-top: 1rem; padding: 1rem; font-size: 1.1rem;">
+                    <i class="fa fa-lock"></i> Pay ₹{{ total_price }} & Register
+                </button>
+            </form>
+
+            <script>
+                const payForm = document.getElementById('payment-form');
+                const payButton = document.getElementById('pay-button');
+                const paymentMethodSelect = document.getElementById('payment_method_select');
+                const paymentMethodInput = document.getElementById('payment_method');
+
+                paymentMethodSelect.addEventListener('change', function() {
+                    paymentMethodInput.value = this.value;
+                });
+
+                payButton.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    
+                    const methodSelect = document.getElementById('payment_method_select');
+                    if (!methodSelect.value) {
+                        alert('Please select a payment method');
+                        return;
+                    }
+                    
+                    paymentMethodInput.value = methodSelect.value;
+                    
+                    const options = {
+                        key: '{{ razorpay_key }}',
+                        amount: Math.round({{ total_price }} * 100),  // Convert rupees to paise
+                        currency: 'INR',
+                        name: 'Eventify',
+                        description: 'Booking for {{ event.title }}',
+                        order_id: '{{ razorpay_order_id }}',
+                        handler: handlePaymentSuccess,
+                        prefill: {
+                            name: '{{ user.get_full_name|default:user.username }}',
+                            email: '{{ user_email }}',
+                            contact: '{{ user_phone }}'
+                        },
+                        theme: {
+                            color: '#4f46e5'
+                        }
+                    };
+                    
+                    const rzp = new Razorpay(options);
+                    rzp.open();
+                });
+
+                function handlePaymentSuccess(response) {
+                    const registrationId = document.getElementById('registration_id').value;
+                    const paymentData = {
+                        razorpay_payment_id: response.razorpay_payment_id,
+                        razorpay_order_id: response.razorpay_order_id,
+                        razorpay_signature: response.razorpay_signature,
+                        registration_id: registrationId
+                    };
+
+                    console.log('Payment Response:', response);
+                    console.log('Payment Data being sent:', paymentData);
+
+                    // Verify payment on backend
+                    fetch('{% url "verify_payment" %}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                        },
+                        body: JSON.stringify(paymentData)
+                    })
+                    .then(res => {
+                        console.log('Response status:', res.status);
+                        return res.json();
+                    })
+                    .then(data => {
+                        console.log('Response data:', data);
+                        if (data.status === 'success') {
+                            alert('Payment successful! Your ticket is ready.');
+                            window.location.href = `{% url 'view_ticket' registration_id=0 %}`.replace('0', registrationId);
+                        } else {
+                            alert('Payment verification failed: ' + data.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('An error occurred while verifying payment: ' + error.message);
+                    });
+                }
+            </script>
+            {% else %}
+            <!-- Initial form to select payment method -->
+            <form method="POST">
+                {% csrf_token %}
+                <input type="hidden" name="quantity" value="{{ quantity }}">
+                <div class="form-group">
+                    <label>Payment Method</label>
+                    <select name="payment_method" class="form-control" required>
+                        <option value="">Select a payment method</option>
+                        <option value="Credit Card">Credit Card</option>
+                        <option value="Debit Card">Debit Card</option>
+                        <option value="UPI">UPI</option>
+                        <option value="Net Banking">Net Banking</option>
+                    </select>
+                </div>
+                
+                <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem; padding: 1rem; font-size: 1.1rem;">
+                    <i class="fa fa-lock"></i> Proceed to Payment
+                </button>
+            </form>
+            {% endif %}
+        </div>
+    </main>
+
+    <footer>
+        <p>&copy; 2026 Eventify. Explore your city!</p>
+    </footer>
+
+    <script>
+        // Auto dismiss messages
+        setTimeout(() => {
+            const msgs = document.querySelectorAll('.message');
+            msgs.forEach(msg => {
+                msg.style.opacity = '0';
+                setTimeout(() => msg.remove(), 300);
+            });
+        }, 5000);
+    </script>
+
+</body>
+
+</html>
+</body>
+
+</html>

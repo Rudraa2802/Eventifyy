@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Profile | Eventify</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom CSS -->
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+
+<body style="background: #0f0f1e; color: #ffffff;">
+
+    <nav class="navbar">
+        <a href="{% url 'home' %}" class="nav-brand"><i class="fa-solid fa-map-location-dot"></i> Eventify</a>
+        <div class="nav-links">
+            <a href="{% url 'home' %}">Explore</a>
+            {% if user.is_authenticated %}
+            <a href="{% url 'dashboard' %}">My Tickets</a>
+            <a href="{% url 'submit_feedback' %}">Give Feedback</a>
+            {% if user.is_superuser or user.is_organizer or user.organized_events.exists %}
+            <a href="{% url 'admin_dashboard' %}">Host Dashboard</a>
+            {% endif %}
+            <form action="{% url 'logout' %}" method="post" style="display:inline;">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-secondary" style="margin-left:1rem;">Logout</button>
+            </form>
+            {% else %}
+            <a href="{% url 'login' %}">Login</a>
+            <a href="{% url 'register' %}" class="btn btn-primary">Sign Up</a>
+            {% endif %}
+        </div>
+    </nav>
+
+    {% if messages %}
+    <div class="messages">
+        {% for message in messages %}
+        <div class="message {{ message.tags }}">
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <main class="container">
+        <div class="glass-panel form-container" style="max-width: 600px; background: #1a1a2e; border: 1px solid #2d2d44;">
+            <h2 class="form-title" style="color: #ffffff;">Edit Profile</h2>
+            <p class="form-subtitle" style="color: #b0b0b0;">Update your personal information</p>
+            
+            <form method="POST">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label style="color: #ffffff;">Username (Read-Only)</label>
+                    <input type="text" class="form-control" value="{{ user.username }}" disabled style="background: #2a2a3e; border: 2px solid #4f46e5; color: #999; opacity: 0.7;">
+                </div>
+                
+                <div style="display: flex; gap: 1rem;">
+                    <div class="form-group" style="flex: 1;">
+                        <label>First Name</label>
+                        <input type="text" name="first_name" class="form-control" value="{{ user.first_name }}">
+                    </div>
+                    
+                    <div class="form-group" style="flex: 1;">
+                        <label>Last Name</label>
+                        <input type="text" name="last_name" class="form-control" value="{{ user.last_name }}">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Email Address</label>
+                    <input type="email" name="email" class="form-control" value="{{ user.email }}" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>Phone Number</label>
+                    <input type="text" name="phone" class="form-control" value="{{ user.phone|default:'' }}">
+                </div>
+                
+                <div class="form-group">
+                    <label>Age (Read-Only)</label>
+                    <input type="number" class="form-control" value="{{ user.age }}" disabled style="background-color: var(--bg-light); opacity: 0.7;">
+                    <small style="color: var(--text-light); font-size: 0.8rem;">Contact support if your age is incorrect.</small>
+                </div>
+                
+                <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem; padding: 1rem;">Save Changes</button>
+            </form>
+        </div>
+    </main>
+
+    <footer>
+        <p>&copy; 2026 Eventify. Explore your city!</p>
+    </footer>
+
+    <script>
+        // Auto dismiss messages
+        setTimeout(() => {
+            const msgs = document.querySelectorAll('.message');
+            msgs.forEach(msg => {
+                msg.style.opacity = '0';
+                setTimeout(() => msg.remove(), 300);
+            });
+        }, 5000);
+    </script>
+</body>
+
+</html>
